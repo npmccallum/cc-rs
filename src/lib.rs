@@ -869,15 +869,26 @@ impl Build {
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
-        let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
-            (&output[3..output.len() - 2], output.to_owned())
+        let lib_name = if output.starts_with("lib") && output.ends_with(".a") {
+            &output[3..output.len() - 2]
         } else {
-            let mut gnu = String::with_capacity(5 + output.len());
-            gnu.push_str("lib");
-            gnu.push_str(&output);
-            gnu.push_str(".a");
-            (output, gnu)
+            output
         };
+
+        let mut gnu_lib_name = String::new();
+
+        if !self.get_target()?.starts_with("wasm") {
+            gnu_lib_name.push_str("lib");
+        }
+
+        gnu_lib_name.push_str(&output);
+
+        if self.get_target()?.starts_with("wasm") {
+            gnu_lib_name.push_str(".wasm");
+        } else {
+            gnu_lib_name.push_str(".a");
+        }
+
         let dst = self.get_out_dir()?;
 
         let mut objects = Vec::new();
@@ -945,7 +956,8 @@ impl Build {
     /// The name `output` should be the name of the library.  For backwards compatibility,
     /// the `output` may start with `lib` and end with `.a`.  The Rust compilier will create
     /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
-    /// ending with `.lib`.
+    /// ending with `.lib`.  When compiling a WebAssembly binary, the compiler will create a file
+    /// without a prefix and with the `.wasm` extension.
     ///
     /// # Panics
     ///
